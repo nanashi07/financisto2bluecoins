@@ -19,7 +19,7 @@ use financisto2bluecoins::*;
 fn financisto_to_bluecoins() -> Result<()> {
     init_log("INFO")?;
 
-    let filename = "data/20221127_105710_281.backup";
+    let filename = "data/20221202_210902_662.backup";
     let file = fs::File::open(filename)?;
     let reader = BufReader::new(file);
     let mut decoded = GzDecoder::new(reader);

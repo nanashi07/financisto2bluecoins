@@ -145,7 +145,7 @@ pub struct FinancistoTransaction {
     pub to_amount: i64,
     pub from_amount: i64,
     pub original_currency_id: i32,
-    pub original_from_amount: i32,
+    pub original_from_amount: i64,
     pub last_recurrence: i64,
     pub is_template: i32,
     pub updated_on: i64,
@@ -330,7 +330,7 @@ pub fn migrate_accounts(
         // account
         statements.push(format!(
             "INSERT INTO \"ACCOUNTSTABLE\" (\"accountsTableID\", \"accountName\", \"accountTypeID\", \"accountHidden\", \"accountCurrency\", \"accountConversionRateNew\", \"currencyChanged\", \"creditLimit\", \"cutOffDa\", \"creditCardDueDate\", \"cashBasedAccounts\", \"accountSelectorVisibility\", \"accountsExtraColumnInt1\", \"accountsExtraColumnInt2\", \"accountsExtraColumnString1\", \"accountsExtraColumnString2\") VALUES ('{}', '{}', '{}', '0', '{}', '1.0', NULL, '0', '0', '0', '0', '0', NULL, NULL, NULL, NULL);",
-            account.id,
+            account.id + 5,
             escape_quote(&account.title),
             account_type,
             currency,
@@ -346,7 +346,7 @@ pub fn migrate_accounts(
         // init transaction
         statements.push(format!(
             "INSERT INTO \"TRANSACTIONSTABLE\" (\"transactionsTableID\", \"itemID\", \"amount\", \"transactionCurrency\", \"conversionRateNew\", \"date\", \"transactionTypeID\", \"categoryID\", \"accountID\", \"notes\", \"status\", \"accountReference\", \"accountPairID\", \"uidPairID\", \"deletedTransaction\", \"newSplitTransactionID\", \"transferGroupID\", \"reminderTransaction\", \"reminderGroupID\", \"reminderFrequency\", \"reminderRepeatEvery\", \"reminderEndingType\", \"reminderStartDate\", \"reminderEndDate\", \"reminderAfterNoOfOccurences\", \"reminderAutomaticLogTransaction\", \"reminderRepeatByDayOfMonth\", \"reminderExcludeWeekend\", \"reminderWeekDayMoveSetting\", \"reminderUnbilled\", \"creditCardInstallment\", \"reminderVersion\", \"dataExtraColumnString1\") VALUES ('{transactionsTableID}', '{itemID}', '{amount}', '{transactionCurrency}', '{conversionRateNew}', '{date}', '{transactionTypeID}', '{categoryID}', '{accountID}', '{notes}', '{status}', '{accountReference}', '{accountPairID}', '{uidPairID}', '{deletedTransaction}', '{newSplitTransactionID}', '{transferGroupID}', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);",
-            transactionsTableID = account.id,
+            transactionsTableID = account.id + 5,
             itemID = item_id,
             amount = 0,
             transactionCurrency = currency,
@@ -390,16 +390,16 @@ pub fn migrate_categories(categories: &Vec<FinancistoCategory>) -> Result<Vec<St
 
         statements.push(format!(
             "INSERT INTO \"PARENTCATEGORYTABLE\" (\"parentCategoryTableID\", \"parentCategoryName\", \"categoryGroupID\", \"budgetAmountCategoryParent\", \"budgetCustomSetupParent\", \"budgetPeriodCategoryParent\", \"budgetEnabledCategoryParent\", \"categoryParentExtraColumnInt1\", \"categoryParentExtraColumnInt2\", \"categoryParentExtraColumnString1\", \"categoryParentExtraColumnString2\") VALUES ('{parentCategoryTableID}', '{parentCategoryName}', '{categoryGroupID}', NULL, NULL, NULL, '1', NULL, NULL, NULL, NULL);",
-            parentCategoryTableID = item.id,
+            parentCategoryTableID = item.id + 19,
             parentCategoryName = item.title,
             categoryGroupID = category_type,
         ));
 
         statements.push(format!(
             "INSERT INTO \"CHILDCATEGORYTABLE\" (\"categoryTableID\", \"childCategoryName\", \"parentCategoryID\", \"budgetAmount\", \"budgetCustomSetup\", \"budgetPeriod\", \"budgetEnabledCategoryChild\", \"childCategoryIcon\", \"categorySelectorVisibility\", \"categoryExtraColumnInt1\", \"categoryExtraColumnInt2\", \"categoryExtraColumnString1\", \"categoryExtraColumnString2\") VALUES ('{categoryTableID}', '{childCategoryName}', '{parentCategoryID}', '0', NULL, '3', '1', NULL, '0', NULL, NULL, NULL, NULL);",
-            categoryTableID = item.id,
+            categoryTableID = item.id + 19,
             childCategoryName = item.title,
-            parentCategoryID = item.id,
+            parentCategoryID = item.id + 19,
         ));
     }
 
@@ -429,9 +429,9 @@ pub fn migrate_categories(categories: &Vec<FinancistoCategory>) -> Result<Vec<St
 
         statements.push(format!(
             "INSERT INTO \"CHILDCATEGORYTABLE\" (\"categoryTableID\", \"childCategoryName\", \"parentCategoryID\", \"budgetAmount\", \"budgetCustomSetup\", \"budgetPeriod\", \"budgetEnabledCategoryChild\", \"childCategoryIcon\", \"categorySelectorVisibility\", \"categoryExtraColumnInt1\", \"categoryExtraColumnInt2\", \"categoryExtraColumnString1\", \"categoryExtraColumnString2\") VALUES ('{categoryTableID}', '{childCategoryName}', '{parentCategoryID}', '0', NULL, '3', '1', NULL, '0', NULL, NULL, NULL, NULL);",
-            categoryTableID = item.id,
+            categoryTableID = item.id + 19,
             childCategoryName = item.title,
-            parentCategoryID = parent.id,
+            parentCategoryID = parent.id + 19,
         ));
     }
 
@@ -449,7 +449,12 @@ pub fn migrate_transactions(
     let mut id_set: HashSet<i64> = HashSet::new();
 
     for tx in transactions {
-        debug!("{:?}", tx);
+        debug!("{:?}", &tx);
+
+        // ignore template
+        if tx.is_template == 1 {
+            continue;
+        }
 
         let currency =
             if let Some(currency) = currencies.iter().find(|c| c.id == tx.original_currency_id) {
@@ -531,11 +536,11 @@ pub fn migrate_transactions(
                         itemID = item_id,
                         amount = tx.from_amount * 1000000 / 100, // 2 digit fromn financisto, 6 digit from bluecoins
                         transactionCurrency = currency,
-                        conversionRateNew = 1.0,
+                        conversionRateNew = if tx.original_from_amount != 0 { (tx.original_from_amount as f64) / (tx.from_amount as f64) } else { 1.0 },
                         date = tx_time.format("%Y-%m-%d %H:%M:%S"),
                         transactionTypeID = if tx.from_amount >= 0 { 4 } else { 3 }, // 3 = expense, 4 = income
-                        categoryID = tx.category_id,
-                        accountID = tx.from_account_id,
+                        categoryID = tx.category_id + 19,
+                        accountID = tx.from_account_id + 5,
                         notes = notes,
                         status = 0,
                         accountReference = 1, // UNKNOW meanings
@@ -574,12 +579,12 @@ pub fn migrate_transactions(
                             conversionRateNew = 1.0,
                             date = tx_time.format("%Y-%m-%d %H:%M:%S"),
                             transactionTypeID = if tx.from_amount >= 0 { 4 } else { 3 }, // 3 = expense, 4 = income
-                            categoryID = child.category_id,
-                            accountID = child.from_account_id,
+                            categoryID = child.category_id + 19,
+                            accountID = child.from_account_id + 5,
                             notes = child.note.as_ref().unwrap_or(&String::new()),
                             status = 0,
                             accountReference = 1, // UNKNOW meanings
-                            accountPairID = child.from_account_id,
+                            accountPairID = child.from_account_id + 5,
                             uidPairID = tx_time_in_milli + index as i64 + 1,
                             deletedTransaction = 6,
                             newSplitTransactionID = tx_time_in_milli,
@@ -626,7 +631,7 @@ pub fn migrate_transactions(
                 date = tx_time.format("%Y-%m-%d %H:%M:%S"),
                 transactionTypeID = 5, // transfer
                 categoryID = 3, // transfer
-                accountID = tx.from_account_id,
+                accountID = tx.from_account_id + 5,
                 notes = notes,
                 status = 0,
                 accountReference = 1, // UNKNOW meanings
@@ -648,7 +653,7 @@ pub fn migrate_transactions(
                 date = tx_time.format("%Y-%m-%d %H:%M:%S"),
                 transactionTypeID = 5, // transfer
                 categoryID = 3, // transfer
-                accountID = tx.to_account_id,
+                accountID = tx.to_account_id + 5,
                 notes = notes,
                 status = 0,
                 accountReference = 2, // UNKNOW meanings
