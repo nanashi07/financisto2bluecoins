@@ -354,11 +354,11 @@ pub fn migrate_accounts(
             date = create_time.format("%Y-%m-%d %H:%M:%S"),
             transactionTypeID  = 2,
             categoryID = 2,
-            accountID = account.id,
+            accountID = account.id + 5,
             notes = "",
             status = 2,
             accountReference = 3,
-            accountPairID = account.id,
+            accountPairID = account.id + 5,
             uidPairID = account.creation_date,
             deletedTransaction = 6,
             newSplitTransactionID = 0,
@@ -544,7 +544,7 @@ pub fn migrate_transactions(
                         notes = notes,
                         status = 0,
                         accountReference = 1, // UNKNOW meanings
-                        accountPairID = tx.from_account_id,
+                        accountPairID = tx.from_account_id + 5,
                         uidPairID = tx_time_in_milli,
                         deletedTransaction = 6,
                         newSplitTransactionID = 0,
@@ -635,7 +635,7 @@ pub fn migrate_transactions(
                 notes = notes,
                 status = 0,
                 accountReference = 1, // UNKNOW meanings
-                accountPairID = tx.to_account_id,
+                accountPairID = tx.to_account_id + 5,
                 uidPairID = tx_time_in_milli + 1, // pair to transactionsTableID
                 deletedTransaction = 6,
                 newSplitTransactionID = 0,
@@ -657,7 +657,7 @@ pub fn migrate_transactions(
                 notes = notes,
                 status = 0,
                 accountReference = 2, // UNKNOW meanings
-                accountPairID = tx.from_account_id,
+                accountPairID = tx.from_account_id + 5,
                 uidPairID = tx_time_in_milli, // pair to transactionsTableID
                 deletedTransaction = 6,
                 newSplitTransactionID = 0,
